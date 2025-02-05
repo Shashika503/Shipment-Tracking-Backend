@@ -1,4 +1,7 @@
 package com.api.shipment.model;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.*;
@@ -24,6 +27,13 @@ public class Shipment {
     @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Estimated delivery date must be in the format YYYY-MM-DD")
     private String estimatedDelivery;
 
+     // Track created date (auto-set when first created)
+     @Column(updatable = false)
+     private LocalDate createdDate;
+ 
+     // Track rescheduled date (if applicable)
+     private LocalDate rescheduledDate;
+
     @NotBlank(message = "Updates are required")
     @Size(max = 255, message = "Updates cannot exceed 255 characters")
     private String updates;
@@ -35,6 +45,12 @@ public class Shipment {
     @JoinColumn(name = "customer_id", nullable = false)
     @JsonIgnoreProperties("shipments")
     private Customer customer;
+
+    // Auto-set creation date
+    @PrePersist
+    protected void onCreate() {
+        this.createdDate = LocalDate.now();
+    }
 
     // Getters and Setters for all fields
     public Long getId() {
@@ -89,8 +105,24 @@ public class Shipment {
         return customer;
     }
 
+    public LocalDate getCreatedDate() {
+        return createdDate;
+    }
+
+    public LocalDate getRescheduledDate() {
+        return rescheduledDate;
+    }
+
+    public void setCreatedDate(LocalDate createdDate) {
+        this.createdDate = createdDate;
+    }
+
     public void setCustomer(Customer customer) {
         this.customer = customer;
+    }
+
+    public void setRescheduledDate(LocalDate rescheduledDate) {
+        this.rescheduledDate = rescheduledDate;
     }
 }
 

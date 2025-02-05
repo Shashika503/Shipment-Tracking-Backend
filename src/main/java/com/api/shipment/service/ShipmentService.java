@@ -7,6 +7,7 @@ import com.api.shipment.repository.ShipmentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 
@@ -19,6 +20,9 @@ public class ShipmentService {
     @Autowired
     private CustomerRepository customerRepository;
 
+    @Autowired
+    private EmailService emailService;
+
     public Shipment addShipment(Long customerId, Shipment shipment) {
         // Find the customer by ID or throw an exception if not found
         Customer customer = customerRepository.findById(customerId)
@@ -28,9 +32,15 @@ public class ShipmentService {
         if (shipmentRepository.findByTrackingId(shipment.getTrackingId()).isPresent()) {
             throw new RuntimeException("Tracking ID already exists!");
         }
-    
+
+          // Ensure createdDate is set (this happens automatically with @PrePersist)
+    if (shipment.getCreatedDate() == null) {
+        shipment.setCreatedDate(LocalDate.now());
+    }
         // Set the customer for the shipment
         shipment.setCustomer(customer);
+
+        
     
         // Save and return the shipment
         return shipmentRepository.save(shipment);
@@ -66,15 +76,36 @@ public class ShipmentService {
     public Shipment rescheduleShipment(Long shipmentId, String newDate, String instructions) {
         Shipment existingShipment = shipmentRepository.findById(shipmentId)
                 .orElseThrow(() -> new RuntimeException("Shipment not found"));
+
+        // Prevent rescheduling to the same date
+    if (existingShipment.getEstimatedDelivery().equals(newDate)) {
+        throw new RuntimeException("This shipment is already scheduled for this date.");
+    }        
     
         // Update the estimated delivery date
         existingShipment.setEstimatedDelivery(newDate);
     
         // Update the instructions
         existingShipment.setInstructions(instructions);
+        existingShipment.setRescheduledDate(LocalDate.now()); // Track reschedule date
     
         // Save and return the updated shipment
-        return shipmentRepository.save(existingShipment);
+        Shipment updatedShipment = shipmentRepository.save(existingShipment);
+
+        //Send email notification to customer
+        String emailSubject = "Your Shipment Delivery Has Been Rescheduled";
+        String emailBody = "Dear Customer,\n\n"
+                + "Your shipment (Tracking ID: " + existingShipment.getTrackingId() + ") "
+                + "has been rescheduled to " + newDate + ".\n\n"
+                + "Instructions: " + instructions + "\n\n"
+                + "Thank you for using our service!\n\nBest Regards,\nShipment Team";
+
+        // Retrieve customer email
+        String customerEmail = existingShipment.getCustomer().getEmail();
+
+        emailService.sendEmail(customerEmail, emailSubject, emailBody);
+        
+        return updatedShipment;
     }
     
 
