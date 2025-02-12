@@ -32,7 +32,7 @@ public class Shipment {
      private LocalDate createdDate;
  
      // Track rescheduled date (if applicable)
-     private LocalDate rescheduledDate;
+     private String rescheduledDate;
 
     @NotBlank(message = "Updates are required")
     @Size(max = 255, message = "Updates cannot exceed 255 characters")
@@ -109,7 +109,7 @@ public class Shipment {
         return createdDate;
     }
 
-    public LocalDate getRescheduledDate() {
+    public String getRescheduledDate() {
         return rescheduledDate;
     }
 
@@ -121,7 +121,7 @@ public class Shipment {
         this.customer = customer;
     }
 
-    public void setRescheduledDate(LocalDate rescheduledDate) {
+    public void setRescheduledDate(String rescheduledDate) {
         this.rescheduledDate = rescheduledDate;
     }
 }

@@ -52,13 +52,39 @@ public class ShipmentService {
     public Shipment updateShipment(Long shipmentId, Shipment shipmentDetails) {
         Shipment existingShipment = shipmentRepository.findById(shipmentId)
                 .orElseThrow(() -> new RuntimeException("Shipment not found"));
-
+    
         existingShipment.setTrackingId(shipmentDetails.getTrackingId());
         existingShipment.setStatus(shipmentDetails.getStatus());
         existingShipment.setEstimatedDelivery(shipmentDetails.getEstimatedDelivery());
         existingShipment.setUpdates(shipmentDetails.getUpdates());
-
-        return shipmentRepository.save(existingShipment);
+    
+        // Save the updated shipment first
+        Shipment updatedShipment = shipmentRepository.save(existingShipment);
+    
+        // Check if the status is updated to "Delivered"
+        if ("Delivered".equalsIgnoreCase(shipmentDetails.getStatus())) {
+            sendDeliveryConfirmationEmail(existingShipment);
+        }
+    
+        return updatedShipment;
+    }
+    
+    /**
+     * Sends a delivery confirmation email when a shipment is marked as "Delivered".
+     */
+    private void sendDeliveryConfirmationEmail(Shipment shipment) {
+        String emailSubject = "Your Shipment Has Been Delivered!";
+        String emailBody = "Dear Customer,\n\n"
+                + "Your shipment (Tracking ID: " + shipment.getTrackingId() + ") "
+                + "has been successfully delivered.\n\n"
+                + "Delivery Date: " + shipment.getEstimatedDelivery() + "\n\n"
+                + "Thank you for choosing our service!\n\nBest Regards,\nShipment Team";
+    
+        // Retrieve customer email
+        String customerEmail = shipment.getCustomer().getEmail();
+    
+        // Send the email
+        emailService.sendEmail(customerEmail, emailSubject, emailBody);
     }
 
     public void deleteShipment(Long shipmentId) {
@@ -73,21 +99,26 @@ public class ShipmentService {
     }
 
     // **Reschedule Shipment Delivery**
-    public Shipment rescheduleShipment(Long shipmentId, String newDate, String instructions) {
-        Shipment existingShipment = shipmentRepository.findById(shipmentId)
-                .orElseThrow(() -> new RuntimeException("Shipment not found"));
+    public Shipment rescheduleShipment(String trackingId, String newDate, String instructions , String customerId) {
+        Shipment existingShipment = shipmentRepository.findByTrackingId(trackingId)
+                .orElseThrow(() -> new RuntimeException("TrackingId not found"));
 
         // Prevent rescheduling to the same date
     if (existingShipment.getEstimatedDelivery().equals(newDate)) {
         throw new RuntimeException("This shipment is already scheduled for this date.");
-    }        
+    } 
+    
+    // Check if the customerId matches the one associated with the shipment
+    if (!existingShipment.getCustomer().getId().toString().equals(customerId)) {
+        throw new RuntimeException("This shipment does not belong to the same customer.");
+    }
     
         // Update the estimated delivery date
         existingShipment.setEstimatedDelivery(newDate);
     
         // Update the instructions
         existingShipment.setInstructions(instructions);
-        existingShipment.setRescheduledDate(LocalDate.now()); // Track reschedule date
+        existingShipment.setRescheduledDate(newDate); // Track reschedule date
     
         // Save and return the updated shipment
         Shipment updatedShipment = shipmentRepository.save(existingShipment);
